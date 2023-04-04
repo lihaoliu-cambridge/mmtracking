@@ -42,7 +42,9 @@ def convert_vis(ann_dir, save_dir, dataset_version, mode='train'):
             dataset. Options are 'train', 'valid', 'test'. Default: 'train'.
     """
     assert dataset_version in ['2019', '2021']
-    assert mode in ['train', 'valid', 'test']
+    # assert mode in ['train', 'valid', 'test', 'sample', 'train_first_frame', 'train_extra']
+    assert mode in ['train', 'valid', 'test', 'sample', 'train_first_frame', 'train_extra']
+
     VIS = defaultdict(list)
     records = dict(vid_id=1, img_id=1, ann_id=1, global_instance_id=1)
     obj_num_classes = dict()
@@ -53,7 +55,7 @@ def convert_vis(ann_dir, save_dir, dataset_version, mode='train'):
         official_anns = mmcv.load(osp.join(ann_dir, mode, 'instances.json'))
     VIS['categories'] = copy.deepcopy(official_anns['categories'])
 
-    has_annotations = mode == 'train'
+    has_annotations = True
     if has_annotations:
         vid_to_anns = defaultdict(list)
         for ann_info in official_anns['annotations']:
@@ -132,7 +134,7 @@ def convert_vis(ann_dir, save_dir, dataset_version, mode='train'):
     if not osp.isdir(save_dir):
         os.makedirs(save_dir)
     mmcv.dump(VIS,
-              osp.join(save_dir, f'youtube_vis_{dataset_version}_{mode}.json'))
+              osp.join(save_dir, f'traffic_cam_{mode}.json'))
     print(f'-----YouTube VIS {dataset_version} {mode}------')
     print(f'{records["vid_id"]- 1} videos')
     print(f'{records["img_id"]- 1} images')
@@ -143,14 +145,16 @@ def convert_vis(ann_dir, save_dir, dataset_version, mode='train'):
     if has_annotations:
         for i in range(1, len(VIS['categories']) + 1):
             class_name = VIS['categories'][i - 1]['name']
-            print(f'Class {i} {class_name} has {obj_num_classes[i]} objects.')
+            i_of_obj_num_classes = obj_num_classes[i] if i in obj_num_classes else 0
+            print(f'Class {i} {class_name} has {i_of_obj_num_classes} objects.')
 
 
 def main():
-    args = parse_args()
-    for sub_set in ['train', 'valid', 'test']:
-        convert_vis(args.input, args.output, args.version, sub_set)
 
+    input='/rds/project/rds-xfbi6l4KMrM/yc443/data/tracking_v0/out-json/'
+    output='/rds/project/rds-xfbi6l4KMrM/yc443/data/tracking_v0/out-json/coco/'
+
+    convert_vis(input, output, '2019', "train_first_frame")
 
 if __name__ == '__main__':
     main()
