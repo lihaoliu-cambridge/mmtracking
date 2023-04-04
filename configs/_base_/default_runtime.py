@@ -1,5 +1,5 @@
 # optimizer
-optimizer = dict(type='SGD', lr=0.02, momentum=0.9, weight_decay=0.0001)
+optimizer = dict(type='AdamW', lr=0.0002, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.05)
 optimizer_config = dict(grad_clip=None)
 checkpoint_config = dict(interval=1)
 # yapf:disable
