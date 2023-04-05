@@ -38,11 +38,7 @@ class SortTracker(BaseTracker):
 
     def __init__(self,
                  obj_score_thr=0.3,
-                 reid=dict(
-                     num_samples=10,
-                     img_scale=(256, 128),
-                     img_norm_cfg=None,
-                     match_score_thr=2.0),
+                 reid=None,
                  match_iou_thr=0.7,
                  num_tentatives=3,
                  init_cfg=None,
@@ -66,8 +62,9 @@ class SortTracker(BaseTracker):
         bbox = bbox_xyxy_to_cxcyah(self.tracks[id].bboxes[-1])  # size = (1, 4)
         assert bbox.ndim == 2 and bbox.shape[0] == 1
         bbox = bbox.squeeze(0).cpu().numpy()
-        self.tracks[id].mean, self.tracks[id].covariance = self.kf.initiate(
-            bbox)
+        if self.kf is not None:
+            self.tracks[id].mean, self.tracks[id].covariance = self.kf.initiate(
+                bbox)
 
     def update_track(self, id, obj):
         """Update a track."""
@@ -78,8 +75,9 @@ class SortTracker(BaseTracker):
         bbox = bbox_xyxy_to_cxcyah(self.tracks[id].bboxes[-1])  # size = (1, 4)
         assert bbox.ndim == 2 and bbox.shape[0] == 1
         bbox = bbox.squeeze(0).cpu().numpy()
-        self.tracks[id].mean, self.tracks[id].covariance = self.kf.update(
-            self.tracks[id].mean, self.tracks[id].covariance, bbox)
+        if self.kf is not None:
+            self.tracks[id].mean, self.tracks[id].covariance = self.kf.update(
+                self.tracks[id].mean, self.tracks[id].covariance, bbox)
 
     def pop_invalid_tracks(self, frame_id):
         """Pop out invalid tracks."""
@@ -96,12 +94,12 @@ class SortTracker(BaseTracker):
 
     @force_fp32(apply_to=('img', ))
     def track(self,
-              img,
               img_metas,
               model,
               bboxes,
               labels,
               frame_id,
+              img=None,
               rescale=False,
               **kwargs):
         """Tracking forward function.
@@ -123,6 +121,9 @@ class SortTracker(BaseTracker):
         Returns:
             tuple: Tracking results.
         """
+        if str(model)[0:7]=='QDTrack':
+            model.motion=None
+        
         if not hasattr(self, 'kf'):
             self.kf = model.motion
 
