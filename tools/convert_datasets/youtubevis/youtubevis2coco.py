@@ -42,9 +42,7 @@ def convert_vis(ann_dir, save_dir, dataset_version, mode='train'):
             dataset. Options are 'train', 'valid', 'test'. Default: 'train'.
     """
     assert dataset_version in ['2019', '2021']
-    # assert mode in ['train', 'valid', 'test', 'sample', 'train_first_frame', 'train_extra']
-    assert mode in ['train', 'valid', 'test', 'sample', 'train_first_frame', 'train_extra']
-
+    assert mode in ['train', 'valid', 'test', 'train_first_frame', 'train_extra', 'unlabeled', 'first_frame_labeled']
     VIS = defaultdict(list)
     records = dict(vid_id=1, img_id=1, ann_id=1, global_instance_id=1)
     obj_num_classes = dict()
@@ -55,7 +53,7 @@ def convert_vis(ann_dir, save_dir, dataset_version, mode='train'):
         official_anns = mmcv.load(osp.join(ann_dir, mode, 'instances.json'))
     VIS['categories'] = copy.deepcopy(official_anns['categories'])
 
-    has_annotations = True
+    has_annotations = False if mode in ['unlabeled'] else True
     if has_annotations:
         vid_to_anns = defaultdict(list)
         for ann_info in official_anns['annotations']:
@@ -88,7 +86,9 @@ def convert_vis(ann_dir, save_dir, dataset_version, mode='train'):
                 video_id=video_info['id'])
             VIS['images'].append(image)
 
-            if has_annotations:
+            skip_empty_frames = True if mode in ['first_frame_labeled'] and frame_id != 0 else False
+            
+            if has_annotations and not skip_empty_frames:
                 for ann_info in ann_infos_in_video:
                     bbox = ann_info['bboxes'][frame_id]
                     if bbox is None:
@@ -150,11 +150,18 @@ def convert_vis(ann_dir, save_dir, dataset_version, mode='train'):
 
 
 def main():
+    args = parse_args()
 
-    input='/rds/project/rds-xfbi6l4KMrM/yc443/data/tracking_v0/out-json/'
-    output='/rds/project/rds-xfbi6l4KMrM/yc443/data/tracking_v0/out-json/coco/'
+    input = '/rds/project/rds-xfbi6l4KMrM/yc443/data/tracking_v0/data_clean/annotations/youtube_vis'
+    output = '/rds/project/rds-xfbi6l4KMrM/yc443/data/tracking_v0/data_clean/annotations/coco_vid'
+    version = '2019'
 
-    convert_vis(input, output, '2019', "train_first_frame")
+    # for sub_set in ['train', 'valid', 'test', 'train_first_frame', 'train_extra', 'unlabeled', 'first_frame_labeled', 'sample_train', 'sample_unlabeled', 'sample_first_frame_labeled']:
+    # for sub_set in ['train', 'valid', 'test', 'train_first_frame', 'train_extra', 'sample_train']:
+    # for sub_set in ['unlabeled']: #, 'sample_unlabeled']:
+    for sub_set in ['first_frame_labeled']: # , 'sample_first_frame_labeled']:
+        # convert_vis(args.input, args.output, args.version, sub_set)
+        convert_vis(input, output, version, sub_set)
 
 if __name__ == '__main__':
     main()

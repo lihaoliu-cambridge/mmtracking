@@ -2,6 +2,7 @@
 import random
 
 import numpy as np
+import mmcv
 from mmcv.utils import print_log
 from mmdet.datasets import DATASETS, CocoDataset
 from terminaltables import AsciiTable
@@ -494,3 +495,72 @@ class CocoVideoDataset(CocoDataset):
         table = AsciiTable(table_data)
         result += table.table
         return result
+
+    def results2json(self, results, outfile_prefix):
+        """Dump the detection results to a COCO style json file.
+
+        There are 3 types of results: proposals, bbox predictions, mask
+        predictions, and they have different data types. This method will
+        automatically recognize the type, and dump them to json files.
+
+        Args:
+            results (list[list | tuple | ndarray]): Testing results of the
+                dataset.
+            outfile_prefix (str): The filename prefix of the json files. If the
+                prefix is "somepath/xxx", the json files will be named
+                "somepath/xxx.bbox.json", "somepath/xxx.segm.json",
+                "somepath/xxx.proposal.json".
+
+        Returns:
+            dict[str: str]: Possible keys are "bbox", "segm", "proposal", and \
+                values are corresponding filenames.
+        """
+        result_files = dict()
+        if isinstance(results[0], list):
+            json_results = self._det2json(results)
+            result_files['bbox'] = f'{outfile_prefix}.bbox.json'
+            result_files['proposal'] = f'{outfile_prefix}.bbox.json'
+            mmcv.dump(json_results, result_files['bbox'])
+        elif isinstance(results[0], tuple):
+            json_results = self._segm2json(results)
+            result_files['bbox'] = f'{outfile_prefix}.bbox.json'
+            result_files['proposal'] = f'{outfile_prefix}.bbox.json'
+            result_files['segm'] = f'{outfile_prefix}.segm.json'
+            mmcv.dump(json_results[0], result_files['bbox'])
+            mmcv.dump(json_results[1], result_files['segm'])
+        elif isinstance(results[0], np.ndarray):
+            json_results = self._proposal2json(results)
+            result_files['proposal'] = f'{outfile_prefix}.proposal.json'
+            mmcv.dump(json_results, result_files['proposal'])
+        else:
+            raise TypeError('invalid type of results')
+        return result_files
+
+    # To Zhongying: 
+    # This is the function you need to modify.
+    # Please take a detail look at input "results", so you can find instance_id from results
+    # I have added video_id for you, if you need extra information, please use "info" to get it.
+    def _det2json(self, results):
+        """Convert detection results to COCO json style."""
+        print("len of img_ids: ", len(self.img_ids))
+        json_results = []
+        for idx in range(len(self)):
+            img_id = self.img_ids[idx]
+            info = self.coco.load_imgs([img_id])[0]
+            result = results[idx]
+            print("len of result: ", len(result))
+            instance_id = 1
+            for label in range(len(result)):
+                bboxes = result[label]
+                # print(bboxes.shape)
+                for i in range(bboxes.shape[0]):
+                    data = dict()
+                    data['video_id'] = info['video_id']
+                    data['image_id'] = img_id
+                    data['bbox'] = self.xyxy2xywh(bboxes[i])
+                    data['score'] = float(bboxes[i][4])
+                    data['category_id'] = self.cat_ids[label]
+                    data['instance_id'] = instance_id
+                    json_results.append(data)
+                    instance_id += 1
+        return json_results
